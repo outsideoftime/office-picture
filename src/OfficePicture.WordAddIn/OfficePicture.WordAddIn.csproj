@@ -6,13 +6,16 @@
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion><LoadBehavior>3</LoadBehavior><OfficeApplication>Word</OfficeApplication>
     <DefineConstants>VSTO40</DefineConstants><BootstrapperEnabled>true</BootstrapperEnabled><ResolveComReferenceSilent>true</ResolveComReferenceSilent>
     <SignManifests>false</SignManifests>
+    <LangVersion>latest</LangVersion><Nullable>enable</Nullable>
     <VSToolsPath Condition="'$(VSToolsPath)' == ''">$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'"><OutputPath>bin\Debug\</OutputPath><DebugSymbols>true</DebugSymbols><DebugType>full</DebugType><DefineConstants>$(DefineConstants);DEBUG;TRACE</DefineConstants></PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|AnyCPU'"><OutputPath>bin\Release\</OutputPath><DebugType>pdbonly</DebugType><Optimize>true</Optimize><DefineConstants>$(DefineConstants);TRACE</DefineConstants></PropertyGroup>
   <ItemGroup>
     <Reference Include="System"/><Reference Include="System.Drawing"/><Reference Include="System.Windows.Forms"/><Reference Include="System.Core"/>
-    <Reference Include="Microsoft.Office.Tools.Common"/><Reference Include="Microsoft.Office.Tools"/><Reference Include="Microsoft.Office.Tools.Word"/><Reference Include="Microsoft.Office.Tools.Common.v4.0.Utilities"><Private>True</Private></Reference>
-    <COMReference Include="Microsoft.Office.Core"><Guid>{2DF8D04C-5BFA-101B-BDE5-00AA0044DE52}</Guid><VersionMajor>2</VersionMajor><VersionMinor>8</VersionMinor><Lcid>0</Lcid><WrapperTool>tlbimp</WrapperTool><EmbedInteropTypes>true</EmbedInteropTypes></COMReference>
-    <COMReference Include="Microsoft.Office.Interop.Word"><Guid>{00020905-0000-0000-C000-000000000046}</Guid><VersionMajor>8</VersionMajor><VersionMinor>7</VersionMinor><Lcid>0</Lcid><WrapperTool>tlbimp</WrapperTool><EmbedInteropTypes>true</EmbedInteropTypes></COMReference>
+    <Reference Include="Microsoft.Office.Tools.v4.0.Framework"><HintPath>$(VSInstallDir)Common7\IDE\ReferenceAssemblies\v4.0\Microsoft.Office.Tools.v4.0.Framework.dll</HintPath><Private>False</Private></Reference><Reference Include="Microsoft.VisualStudio.Tools.Applications.Runtime"><HintPath>$(VSInstallDir)Common7\IDE\ReferenceAssemblies\v4.0\Microsoft.VisualStudio.Tools.Applications.Runtime.dll</HintPath><Private>False</Private></Reference><Reference Include="Microsoft.Office.Tools.Common"><HintPath>$(VSInstallDir)Common7\IDE\ReferenceAssemblies\v4.0\Microsoft.Office.Tools.Common.dll</HintPath><Private>False</Private></Reference><Reference Include="Microsoft.Office.Tools"><HintPath>$(VSInstallDir)Common7\IDE\ReferenceAssemblies\v4.0\Microsoft.Office.Tools.dll</HintPath><Private>False</Private></Reference><Reference Include="Microsoft.Office.Tools.Word"><HintPath>$(VSInstallDir)Common7\IDE\ReferenceAssemblies\v4.0\Microsoft.Office.Tools.Word.dll</HintPath><Private>False</Private></Reference><Reference Include="Microsoft.Office.Tools.Common.v4.0.Utilities"><HintPath>$(VSInstallDir)Common7\IDE\ReferenceAssemblies\v4.0\Microsoft.Office.Tools.Common.v4.0.Utilities.dll</HintPath><Private>True</Private></Reference>
+    <Reference Include="Microsoft.Office.Interop.Word"><HintPath>$(WINDIR)\assembly\GAC_MSIL\Microsoft.Office.Interop.Word\15.0.0.0__71e9bce111e9429c\Microsoft.Office.Interop.Word.dll</HintPath><EmbedInteropTypes>true</EmbedInteropTypes></Reference>
+    <COMReference Include="Microsoft.Office.Core"><Guid>{2DF8D04C-5BFA-101B-BDE5-00AA0044DE52}</Guid><VersionMajor>2</VersionMajor><VersionMinor>7</VersionMinor><Lcid>0</Lcid><WrapperTool>tlbimp</WrapperTool><EmbedInteropTypes>true</EmbedInteropTypes></COMReference>
   </ItemGroup>
   <ItemGroup><ProjectReference Include="..\OfficePicture.Core\OfficePicture.Core.csproj" /></ItemGroup>
   <ItemGroup>

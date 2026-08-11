@@ -29,7 +29,6 @@ public partial class ThisAddIn
         {
             if (selection.Type != PowerPoint.PpSelectionType.ppSelectionShapes || selection.ShapeRange.Count == 0) return;
             var shape = selection.ShapeRange[1];
-            if (shape.Type != Microsoft.Office.Core.MsoShapeType.msoPicture && shape.Type != Microsoft.Office.Core.MsoShapeType.msoLinkedPicture) return;
             if (ClipboardImageCapture.TryCapture(shape.Copy, out var image) && image is not null)
             {
                 using (image) _previewPane?.ShowImage(image, "PowerPoint", "当前选中图片");

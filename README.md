@@ -29,6 +29,8 @@
 3. 分别将 `OfficePicture.WordAddIn`、`OfficePicture.PowerPointAddIn`、`OfficePicture.ExcelAddIn` 设为启动项目进行调试。VSTO 会启动对应的 Office 宿主。
 4. 在 Office 文档中插入并选中图片，右侧会出现“图片预览”原生任务窗格。
 
+首次调试如果提示 ClickOnce manifest 未签名：打开对应项目的“属性 > 签名”，勾选“为 ClickOnce 清单签名”，点击“创建测试证书”。三个项目分别完成一次即可。该证书仅用于本机调试，不要提交到 Git。
+
 ## 当前行为
 
 - Word：监听选区变化，支持 InlineShape 和浮动 Shape 图片。
@@ -37,6 +39,8 @@
 - 预览使用的是 Office 当前选中的图片，不需要本地图片路径或 URL。
 
 插件通过 Office 的复制接口捕获渲染后的图片，因此对常见 PNG、JPEG、截图、剪贴画和链接图片都适用。个别 OLE 对象、图表或受保护文档不是普通图片时会跳过预览。
+
+当前环境验证：`OfficePicture.Core`、Word、PowerPoint、Excel 四个项目均已成功编译 DLL；完整 VSTO Build 还需要上述本机 ClickOnce 测试证书。
 
 ## Git
 

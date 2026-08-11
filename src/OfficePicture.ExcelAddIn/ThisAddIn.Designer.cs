@@ -13,7 +13,5 @@ public sealed partial class ThisAddIn : Microsoft.Office.Tools.AddInBase
     protected override void FinishInitialization() { InternalStartup(); OnStartup(); }
     protected override void OnShutdown() { CustomTaskPanes.Dispose(); base.OnShutdown(); }
     private void InternalStartup() { Startup += ThisAddIn_Startup; Shutdown += ThisAddIn_Shutdown; }
-    private void ThisAddIn_Startup(object sender, EventArgs e) { }
-    private void ThisAddIn_Shutdown(object sender, EventArgs e) { }
 }
 internal static class Globals { internal static ThisAddIn ThisAddIn = null!; internal static Microsoft.Office.Tools.Excel.ApplicationFactory Factory = null!; }
