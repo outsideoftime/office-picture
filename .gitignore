@@ -1,0 +1,14 @@
+# Visual Studio
+.vs/
+**/bin/
+**/obj/
+*.user
+*.suo
+
+# ASP.NET Core / local certificates
+*.pfx
+appsettings.local.json
+
+# OS files
+.DS_Store
+Thumbs.db
