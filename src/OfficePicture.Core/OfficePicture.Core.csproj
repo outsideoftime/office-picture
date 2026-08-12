@@ -35,7 +35,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ClipboardImageCapture.cs" />
-    <Compile Include="PreviewPane.cs" />
+    <Compile Include="ImagePreviewForm.cs" />
+    <Compile Include="NativeWindowOwner.cs" />
+    <Compile Include="OfficeDoubleClickHook.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

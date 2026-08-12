@@ -10,8 +10,12 @@ public static class ClipboardImageCapture
     public static bool TryCapture(Action copySelection, out Image? image)
     {
         image = null;
+        IDataObject? previousClipboard = null;
         try
         {
+            try { previousClipboard = SnapshotClipboard(); }
+            catch (ExternalException) { }
+
             copySelection();
             Application.DoEvents();
 
@@ -37,5 +41,31 @@ public static class ClipboardImageCapture
         {
             return false;
         }
+        finally
+        {
+            if (previousClipboard is not null)
+            {
+                try { Clipboard.SetDataObject(previousClipboard, true); }
+                catch (ExternalException) { }
+            }
+        }
+    }
+
+    private static IDataObject? SnapshotClipboard()
+    {
+        var source = Clipboard.GetDataObject();
+        if (source is null) return null;
+
+        var snapshot = new DataObject();
+        foreach (var format in source.GetFormats())
+        {
+            try
+            {
+                var data = source.GetData(format);
+                if (data is not null) snapshot.SetData(format, data);
+            }
+            catch (ExternalException) { }
+        }
+        return snapshot;
     }
 }

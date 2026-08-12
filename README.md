@@ -1,53 +1,47 @@
 # OfficePicture
 
-这是一个基于 VSTO/Office 原生对象模型的图片预览插件，不是 Web Add-in。
+OfficePicture 是一个面向 Word、PowerPoint 和 Excel 桌面版的原生 VSTO 图片预览插件，不是 Web Add-in。
 
-它会在 Word、PowerPoint、Excel 中显示原生 Custom Task Pane；当用户选中文档内已插入的图片时，插件读取 Office 的选中对象并复制图片数据到预览窗格。三种 Office 宿主分别使用独立的 VSTO Add-in 项目，共用 `OfficePicture.Core` 的预览控件。
+在文档中选中已经插入的图片并双击，插件会弹出独立的大图预览窗口。图片来自当前 Office 文档中的选中对象，不需要本地文件路径或 URL。
+
+## 当前功能
+
+- Word：支持嵌入式图片和浮动图片。
+- PowerPoint：支持普通图片和链接图片。
+- Excel：支持工作表中的图片 Shape；通过 Excel 窗口双击消息触发。
+- 预览窗口：适应窗口、100%、放大、缩小、鼠标滚轮缩放，按 `Esc` 关闭。
+- 缩放范围：10%～800%；较小图片在“适应窗口”模式下也会自动放大。
+- 弹窗以当前 Office 窗口为父窗口，打开期间不会跑到 Office 窗口后面。
+- 读取图片时会尽量保存并恢复用户原有的剪贴板内容。
+
+图表、OLE 对象、组合对象和非图片 Shape 不会触发预览。
 
 ## 项目结构
 
-- `OfficePicture.Core`：WinForms 原生预览控件和剪贴板图片捕获逻辑。
-- `OfficePicture.WordAddIn`：Word 图片选中事件与 Custom Task Pane。
-- `OfficePicture.PowerPointAddIn`：PowerPoint 图片选中事件与 Custom Task Pane。
-- `OfficePicture.ExcelAddIn`：Excel 图片选中事件与 Custom Task Pane。
+- `OfficePicture.Core`：WinForms 预览弹窗、剪贴板图片捕获、Office 窗口适配和 Excel 双击钩子。
+- `OfficePicture.WordAddIn`：Word VSTO Add-in。
+- `OfficePicture.PowerPointAddIn`：PowerPoint VSTO Add-in。
+- `OfficePicture.ExcelAddIn`：Excel VSTO Add-in。
 
-## 环境检查结果
+## 环境
 
-- Visual Studio Professional 2026 18.5.3：已安装且可启动。
-- .NET Framework 4.8 Developer Pack：已安装。
-- Office 2021 桌面版：已检测到。
-- Git 2.48.1：已安装。
-- 当前 Visual Studio 的 Office/VSTO 模板文件存在，但安装器组件查询未返回 Office Developer Tools；首次编译若提示找不到 `Microsoft.Office.Tools` 或 `OfficeTools` targets，需要在 Visual Studio Installer 中补装“Office/SharePoint 开发”工作负载/组件。
+- Visual Studio 2026，安装“Microsoft 365 开发”工作负载及 VSTO 工具。
+- .NET Framework 4.7.2 Developer Pack（项目目标框架）。
+- Microsoft Office 桌面版 Word、PowerPoint、Excel。
+- Visual Studio Tools for Office Runtime。
 
-## 使用方式
+当前开发机已检测到 Visual Studio Professional 2026、Office 2021 64 位、VSTO 工具和 .NET Framework 开发工具。
+
+## 调试
 
 1. 打开 `OfficePicture.sln`。
-2. 在 Visual Studio Installer 中确认已安装：
-   - Office/SharePoint 开发（Office Developer Tools）。
-   - .NET Framework 4.8 targeting pack。
-   - Visual Studio Tools for Office Runtime（VSTO Runtime）。
-3. 分别将 `OfficePicture.WordAddIn`、`OfficePicture.PowerPointAddIn`、`OfficePicture.ExcelAddIn` 设为启动项目进行调试。VSTO 会启动对应的 Office 宿主。
-4. 在 Office 文档中插入并选中图片，右侧会出现“图片预览”原生任务窗格。
+2. 将需要测试的 Word、PowerPoint 或 Excel Add-in 项目设为启动项目。
+3. 按 `F5`，Visual Studio 会启动对应 Office 程序。
+4. 新建或打开文档，插入图片。
+5. 单击选中图片，再双击图片，确认出现“图片预览”弹窗。
 
-首次调试如果提示 ClickOnce manifest 未签名：打开对应项目的“属性 > 签名”，勾选“为 ClickOnce 清单签名”，点击“创建测试证书”。三个项目分别完成一次即可。该证书仅用于本机调试，不要提交到 Git。
-
-## 当前行为
-
-- Word：监听选区变化，支持 InlineShape 和浮动 Shape 图片。
-- PowerPoint：监听形状选择，支持普通图片和链接图片。
-- Excel：监听窗口选区变化并读取当前 Shape 图片。
-- 预览使用的是 Office 当前选中的图片，不需要本地图片路径或 URL。
-
-插件通过 Office 的复制接口捕获渲染后的图片，因此对常见 PNG、JPEG、截图、剪贴画和链接图片都适用。个别 OLE 对象、图表或受保护文档不是普通图片时会跳过预览。
-
-当前环境验证：`OfficePicture.Core`、Word、PowerPoint、Excel 四个项目均已成功编译 DLL；完整 VSTO Build 还需要上述本机 ClickOnce 测试证书。
+如果构建提示 ClickOnce manifest 未签名，请打开对应 Add-in 项目的“属性 > 签名”，勾选“为 ClickOnce 清单签名”，创建本机测试证书。三个 Add-in 项目需分别配置一次。测试证书 `*.pfx` 已被 Git 忽略，不应提交。
 
 ## Git
 
-仓库已初始化，`.gitignore` 已包含 Visual Studio、VSTO 构建产物和用户配置文件。
-
-```powershell
-git status
-git add .
-git commit -m "创建 Office 原生图片预览插件"
-```
+仓库已经初始化，`.gitignore` 已忽略 Visual Studio、VSTO 构建产物、用户配置和测试证书。

@@ -1,39 +1,48 @@
 using OfficePicture.Core;
+using Office = Microsoft.Office.Core;
 using PowerPoint = Microsoft.Office.Interop.PowerPoint;
 
 namespace OfficePicture.PowerPointAddIn;
 
 public partial class ThisAddIn
 {
-    private PreviewPane? _previewPane;
-    private Microsoft.Office.Tools.CustomTaskPane? _taskPane;
+    private bool _previewOpen;
 
     private void ThisAddIn_Startup(object sender, System.EventArgs e)
     {
-        _previewPane = new PreviewPane();
-        _taskPane = CustomTaskPanes.Add(_previewPane, "图片预览");
-        _taskPane.Width = 360;
-        _taskPane.Visible = true;
-        Application.WindowSelectionChange += Application_WindowSelectionChange;
+        Application.WindowBeforeDoubleClick += Application_WindowBeforeDoubleClick;
     }
 
     private void ThisAddIn_Shutdown(object sender, System.EventArgs e)
     {
-        Application.WindowSelectionChange -= Application_WindowSelectionChange;
-        _taskPane?.Dispose();
+        Application.WindowBeforeDoubleClick -= Application_WindowBeforeDoubleClick;
     }
 
-    private void Application_WindowSelectionChange(PowerPoint.Selection selection)
+    private void Application_WindowBeforeDoubleClick(PowerPoint.Selection selection, ref bool cancel)
     {
+        if (_previewOpen) return;
         try
         {
             if (selection.Type != PowerPoint.PpSelectionType.ppSelectionShapes || selection.ShapeRange.Count == 0) return;
             var shape = selection.ShapeRange[1];
-            if (ClipboardImageCapture.TryCapture(shape.Copy, out var image) && image is not null)
+            if (!IsPicture(shape.Type)) return;
+            cancel = true;
+            if (!ClipboardImageCapture.TryCapture(shape.Copy, out var image) || image is null) return;
+
+            _previewOpen = true;
+            try
             {
-                using (image) _previewPane?.ShowImage(image, "PowerPoint", "当前选中图片");
+                using (image)
+                    ImagePreviewForm.ShowPreview(image, "PowerPoint", new NativeWindowOwner(new System.IntPtr(Application.HWND)));
             }
+            finally { _previewOpen = false; }
         }
-        catch { /* Office selection can be transient while changing. */ }
+        catch { /* Office selection can be transient during a double-click. */ }
+    }
+
+    private static bool IsPicture(Office.MsoShapeType type)
+    {
+        var value = (int)type;
+        return value == 13 || value == 11 || value == 28 || value == 29;
     }
 }
