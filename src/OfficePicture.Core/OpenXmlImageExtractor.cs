@@ -28,25 +28,12 @@ public static class OpenXmlImageExtractor
         {
             var package = XDocument.Parse(flatOpenXml, LoadOptions.PreserveWhitespace);
             var parts = GetFlatPackageParts(package);
-            var candidatePartNames = new List<string>();
+            var candidatePartNames = GetWordImagePartNames(parts, shapeId, shapeName);
 
-            foreach (var part in parts.Values.Where(item => item.Xml is not null))
-            {
-                var matchingProperties = part.Xml!.Descendants()
-                    .Where(element => IsShapePropertiesMatch(element, shapeId, shapeName));
-
-                foreach (var properties in matchingProperties)
-                {
-                    var container = properties.AncestorsAndSelf().FirstOrDefault(IsPictureContainer);
-                    if (container is null) continue;
-
-                    foreach (var relationshipId in GetEmbeddedRelationshipIds(container))
-                    {
-                        var target = ResolveFlatRelationship(parts, part.Name, relationshipId);
-                        if (target is not null) candidatePartNames.Add(target);
-                    }
-                }
-            }
+            // InlineShape has no stable Office shape ID. Resolve the blip present in the
+            // selected range XML instead of falling back to the first package media part.
+            if (candidatePartNames.Count == 0 && (shapeId.HasValue || !string.IsNullOrEmpty(shapeName)))
+                candidatePartNames = GetWordImagePartNames(parts, null, null);
 
             var candidates = candidatePartNames
                 .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -56,12 +43,16 @@ public static class OpenXmlImageExtractor
 
             if (TryChooseLargestImage(candidates, out image)) return true;
 
-            // Range.WordOpenXML normally contains only media needed by the selected range.
+            // Last-resort support for old Word picture formats that do not expose a blip.
+            // Only use it when the Flat OPC package contains exactly one decodable image.
+            var mediaParts = parts.Values
+                .Where(part => part.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) && part.Bytes is not null)
+                .Select(part => part.Bytes!)
+                .ToList();
+            if (mediaParts.Count != 1) return false;
+
             return TryChooseLargestImage(
-                parts.Values.Where(part => part.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
-                    .Select(part => part.Bytes)
-                    .Where(bytes => bytes is not null)
-                    .Cast<byte[]>(),
+                mediaParts,
                 out image);
         }
         catch (Exception exception) when (
@@ -185,6 +176,40 @@ public static class OpenXmlImageExtractor
             stream.Dispose();
             throw;
         }
+    }
+
+    private static List<string> GetWordImagePartNames(
+        IReadOnlyDictionary<string, FlatPackagePart> parts,
+        int? shapeId,
+        string? shapeName)
+    {
+        var result = new List<string>();
+        var hasShapeIdentity = shapeId.HasValue || !string.IsNullOrEmpty(shapeName);
+
+        foreach (var part in parts.Values.Where(item => item.Xml is not null))
+        {
+            IEnumerable<XElement> containers;
+            if (hasShapeIdentity)
+            {
+                containers = part.Xml!.DescendantsAndSelf()
+                    .Where(element => IsShapePropertiesMatch(element, shapeId, shapeName))
+                    .Select(properties => properties.AncestorsAndSelf().FirstOrDefault(IsPictureContainer))
+                    .Where(container => container is not null)
+                    .Cast<XElement>();
+            }
+            else
+            {
+                containers = part.Xml!.DescendantsAndSelf().Where(IsPictureContainer);
+            }
+
+            foreach (var relationshipId in containers.SelectMany(GetEmbeddedRelationshipIds).Distinct(StringComparer.Ordinal))
+            {
+                var target = ResolveFlatRelationship(parts, part.Name, relationshipId);
+                if (target is not null) result.Add(target);
+            }
+        }
+
+        return result.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
     }
 
     private static XElement? FindPictureContainer(XDocument document, int shapeId, string shapeName)
