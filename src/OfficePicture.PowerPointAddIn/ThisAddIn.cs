@@ -7,6 +7,7 @@ namespace OfficePicture.PowerPointAddIn;
 public partial class ThisAddIn
 {
     private bool _previewOpen;
+    private System.DateTime _suppressPreviewUntilUtc;
 
     private void ThisAddIn_Startup(object sender, System.EventArgs e)
     {
@@ -20,22 +21,30 @@ public partial class ThisAddIn
 
     private void Application_WindowBeforeDoubleClick(PowerPoint.Selection selection, ref bool cancel)
     {
-        if (_previewOpen) return;
+        if (_previewOpen || System.DateTime.UtcNow < _suppressPreviewUntilUtc)
+        {
+            cancel = true;
+            return;
+        }
+
         try
         {
             if (selection.Type != PowerPoint.PpSelectionType.ppSelectionShapes || selection.ShapeRange.Count == 0) return;
             var shape = selection.ShapeRange[1];
             if (!IsPicture(shape.Type)) return;
             cancel = true;
-            if (!ClipboardImageCapture.TryCapture(shape.Copy, out var image) || image is null) return;
-
             _previewOpen = true;
             try
             {
+                if (!ClipboardImageCapture.TryCapture(shape.Copy, out var image) || image is null) return;
                 using (image)
                     ImagePreviewForm.ShowPreview(image, "PowerPoint", new NativeWindowOwner(new System.IntPtr(Application.HWND)));
             }
-            finally { _previewOpen = false; }
+            finally
+            {
+                _previewOpen = false;
+                _suppressPreviewUntilUtc = System.DateTime.UtcNow.AddMilliseconds(400);
+            }
         }
         catch { /* Office selection can be transient during a double-click. */ }
     }

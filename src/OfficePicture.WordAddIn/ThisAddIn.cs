@@ -7,6 +7,7 @@ namespace OfficePicture.WordAddIn;
 public partial class ThisAddIn
 {
     private bool _previewOpen;
+    private System.DateTime _suppressPreviewUntilUtc;
 
     private void ThisAddIn_Startup(object sender, System.EventArgs e)
     {
@@ -20,21 +21,29 @@ public partial class ThisAddIn
 
     private void Application_WindowBeforeDoubleClick(Word.Selection selection, ref bool cancel)
     {
-        if (_previewOpen) return;
+        if (_previewOpen || System.DateTime.UtcNow < _suppressPreviewUntilUtc)
+        {
+            cancel = true;
+            return;
+        }
+
         try
         {
             if (!IsPicture(selection)) return;
 
             cancel = true;
-            if (!ClipboardImageCapture.TryCapture(selection.Copy, out var image) || image is null) return;
-
             _previewOpen = true;
             try
             {
+                if (!ClipboardImageCapture.TryCapture(selection.Copy, out var image) || image is null) return;
                 using (image)
                     ImagePreviewForm.ShowPreview(image, "Word", new NativeWindowOwner(new System.IntPtr(Application.ActiveWindow.Hwnd)));
             }
-            finally { _previewOpen = false; }
+            finally
+            {
+                _previewOpen = false;
+                _suppressPreviewUntilUtc = System.DateTime.UtcNow.AddMilliseconds(400);
+            }
         }
         catch { /* Office selection can be transient during a double-click. */ }
     }

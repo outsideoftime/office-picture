@@ -9,6 +9,7 @@ public partial class ThisAddIn
 {
     private OfficeDoubleClickHook? _doubleClickHook;
     private bool _previewOpen;
+    private System.DateTime _suppressPreviewUntilUtc;
 
     private void ThisAddIn_Startup(object sender, System.EventArgs e)
     {
@@ -23,22 +24,25 @@ public partial class ThisAddIn
 
     private void PreviewSelectedPicture()
     {
-        if (_previewOpen) return;
+        if (_previewOpen || System.DateTime.UtcNow < _suppressPreviewUntilUtc) return;
         try
         {
             object selection = Application.Selection;
             if (selection is null || selection is Excel.Range) return;
             if (!IsPictureSelection(selection)) return;
-            if (!ClipboardImageCapture.TryCapture(
-                    () => Application.CommandBars.ExecuteMso("Copy"), out var image) || image is null) return;
-
             _previewOpen = true;
             try
             {
+                if (!ClipboardImageCapture.TryCapture(
+                        () => Application.CommandBars.ExecuteMso("Copy"), out var image) || image is null) return;
                 using (image)
                     ImagePreviewForm.ShowPreview(image, "Excel", new NativeWindowOwner(new System.IntPtr(Application.Hwnd)));
             }
-            finally { _previewOpen = false; }
+            finally
+            {
+                _previewOpen = false;
+                _suppressPreviewUntilUtc = System.DateTime.UtcNow.AddMilliseconds(400);
+            }
         }
         catch { /* Excel can return a transient selection during a double-click. */ }
     }

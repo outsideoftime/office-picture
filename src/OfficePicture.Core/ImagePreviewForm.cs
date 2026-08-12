@@ -1,5 +1,6 @@
 using System;
 using System.Drawing;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
 namespace OfficePicture.Core;
@@ -20,20 +21,32 @@ public sealed class ImagePreviewForm : Form
     {
         _image = new Bitmap(image);
         Text = $"图片预览 - {host}";
-        StartPosition = FormStartPosition.CenterParent;
+        StartPosition = FormStartPosition.Manual;
         Size = new Size(1000, 720);
         MinimumSize = new Size(480, 360);
         BackColor = Color.FromArgb(28, 28, 30);
+        ForeColor = Color.White;
         KeyPreview = true;
         ShowIcon = false;
+        ShowInTaskbar = false;
+        FormBorderStyle = FormBorderStyle.None;
+        Padding = new Padding(1);
 
         var toolStrip = new ToolStrip
         {
             GripStyle = ToolStripGripStyle.Hidden,
-            BackColor = Color.FromArgb(245, 245, 247),
-            Padding = new Padding(8, 3, 8, 3),
+            BackColor = Color.FromArgb(38, 38, 41),
+            ForeColor = Color.White,
+            Padding = new Padding(12, 6, 12, 6),
+            Height = 44,
             Renderer = new ToolStripSystemRenderer()
         };
+        toolStrip.Items.Add(new ToolStripLabel($"图片预览 · {host}")
+        {
+            Font = new Font(SystemFonts.MessageBoxFont, FontStyle.Bold),
+            ForeColor = Color.White,
+            Margin = new Padding(0, 1, 16, 2)
+        });
         toolStrip.Items.Add(CreateButton("适应窗口", (_, _) => FitImage()));
         toolStrip.Items.Add(CreateButton("100%", (_, _) => SetZoom(1F)));
         toolStrip.Items.Add(new ToolStripSeparator());
@@ -42,7 +55,15 @@ public sealed class ImagePreviewForm : Form
         _zoomLabel = new ToolStripLabel("100%") { Margin = new Padding(8, 1, 8, 2) };
         toolStrip.Items.Add(_zoomLabel);
         toolStrip.Items.Add(new ToolStripSeparator());
-        toolStrip.Items.Add(new ToolStripLabel($"原图 {_image.Width} × {_image.Height}px"));
+        var closeButton = CreateButton("关闭  ✕", (_, _) => Close());
+        closeButton.Alignment = ToolStripItemAlignment.Right;
+        toolStrip.Items.Add(closeButton);
+        var sizeLabel = new ToolStripLabel($"原图 {_image.Width} × {_image.Height}px")
+        {
+            Alignment = ToolStripItemAlignment.Right,
+            ForeColor = Color.Gainsboro
+        };
+        toolStrip.Items.Add(sizeLabel);
 
         _viewport = new Panel
         {
@@ -80,6 +101,7 @@ public sealed class ImagePreviewForm : Form
     public static void ShowPreview(Image image, string host, IWin32Window? owner = null)
     {
         using var form = new ImagePreviewForm(image, host);
+        form.PlaceOverOwner(owner);
         if (owner is null) form.ShowDialog();
         else form.ShowDialog(owner);
     }
@@ -96,9 +118,36 @@ public sealed class ImagePreviewForm : Form
 
     private static ToolStripButton CreateButton(string text, EventHandler onClick)
     {
-        var button = new ToolStripButton(text) { DisplayStyle = ToolStripItemDisplayStyle.Text };
+        var button = new ToolStripButton(text)
+        {
+            DisplayStyle = ToolStripItemDisplayStyle.Text,
+            ForeColor = Color.White,
+            AutoSize = true,
+            Margin = new Padding(2, 1, 2, 2)
+        };
         button.Click += onClick;
         return button;
+    }
+
+    private void PlaceOverOwner(IWin32Window? owner)
+    {
+        const int inset = 12;
+        if (owner is not null && owner.Handle != IntPtr.Zero && GetWindowRect(owner.Handle, out var ownerRect))
+        {
+            Bounds = new Rectangle(
+                ownerRect.Left + inset,
+                ownerRect.Top + inset,
+                Math.Max(MinimumSize.Width, ownerRect.Right - ownerRect.Left - inset * 2),
+                Math.Max(MinimumSize.Height, ownerRect.Bottom - ownerRect.Top - inset * 2));
+            return;
+        }
+
+        var area = Screen.FromPoint(Cursor.Position).WorkingArea;
+        Bounds = new Rectangle(
+            area.Left + Math.Max(0, (area.Width - Width) / 2),
+            area.Top + Math.Max(0, (area.Height - Height) / 2),
+            Math.Min(Width, area.Width),
+            Math.Min(Height, area.Height));
     }
 
     private void OnPreviewMouseWheel(object? sender, MouseEventArgs e) =>
@@ -133,4 +182,17 @@ public sealed class ImagePreviewForm : Form
         _zoomLabel.Text = $"{_zoom:P0}";
         _viewport.AutoScrollMinSize = new Size(_pictureBox.Right + 20, _pictureBox.Bottom + 20);
     }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativeRect
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+    }
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetWindowRect(IntPtr window, out NativeRect rect);
 }
