@@ -35,7 +35,7 @@ public partial class ThisAddIn
             _previewOpen = true;
             try
             {
-                if (!ClipboardImageCapture.TryCapture(selection.Copy, out var image) || image is null) return;
+                if (!TryGetOriginalImage(selection, out var image) || image is null) return;
                 using (image)
                     ImagePreviewForm.ShowPreview(image, "Word", new NativeWindowOwner(new System.IntPtr(Application.ActiveWindow.Hwnd)));
             }
@@ -46,6 +46,27 @@ public partial class ThisAddIn
             }
         }
         catch { /* Office selection can be transient during a double-click. */ }
+    }
+
+    private static bool TryGetOriginalImage(Word.Selection selection, out System.Drawing.Image? image)
+    {
+        image = null;
+        if (selection.InlineShapes.Count > 0)
+        {
+            var xml = selection.InlineShapes[1].Range.WordOpenXML;
+            return OpenXmlImageExtractor.TryExtractWordImage(xml, null, null, out image);
+        }
+
+        if (selection.ShapeRange.Count == 0) return false;
+        var shape = selection.ShapeRange[1];
+
+        if (OpenXmlImageExtractor.TryExtractWordImage(
+                selection.Range.WordOpenXML, shape.ID, shape.Name, out image))
+            return true;
+
+        var anchorParagraph = shape.Anchor.Paragraphs[1].Range;
+        return OpenXmlImageExtractor.TryExtractWordImage(
+            anchorParagraph.WordOpenXML, shape.ID, shape.Name, out image);
     }
 
     private static bool IsPicture(Word.Selection selection)

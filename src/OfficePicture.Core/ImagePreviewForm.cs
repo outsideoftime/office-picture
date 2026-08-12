@@ -1,5 +1,6 @@
 using System;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
@@ -11,7 +12,7 @@ public sealed class ImagePreviewForm : Form
     private const float MaxZoom = 8F;
 
     private readonly Panel _viewport;
-    private readonly PictureBox _pictureBox;
+    private readonly PixelAccuratePictureBox _pictureBox;
     private readonly ToolStripLabel _zoomLabel;
     private readonly Image _image;
     private float _zoom = 1F;
@@ -26,6 +27,7 @@ public sealed class ImagePreviewForm : Form
         MinimumSize = new Size(480, 360);
         BackColor = Color.FromArgb(28, 28, 30);
         ForeColor = Color.White;
+        AutoScaleMode = AutoScaleMode.None;
         KeyPreview = true;
         ShowIcon = false;
         ShowInTaskbar = false;
@@ -58,7 +60,7 @@ public sealed class ImagePreviewForm : Form
         var closeButton = CreateButton("关闭  ✕", (_, _) => Close());
         closeButton.Alignment = ToolStripItemAlignment.Right;
         toolStrip.Items.Add(closeButton);
-        var sizeLabel = new ToolStripLabel($"原图 {_image.Width} × {_image.Height}px")
+        var sizeLabel = new ToolStripLabel($"原始媒体 {_image.Width} × {_image.Height}px")
         {
             Alignment = ToolStripItemAlignment.Right,
             ForeColor = Color.Gainsboro
@@ -72,11 +74,10 @@ public sealed class ImagePreviewForm : Form
             BackColor = Color.FromArgb(28, 28, 30),
             Padding = new Padding(20)
         };
-        _pictureBox = new PictureBox
+        _pictureBox = new PixelAccuratePictureBox
         {
             Image = _image,
-            SizeMode = PictureBoxSizeMode.Zoom,
-            BackColor = Color.Transparent,
+            BackColor = Color.FromArgb(28, 28, 30),
             TabStop = false
         };
         _viewport.Controls.Add(_pictureBox);
@@ -195,4 +196,25 @@ public sealed class ImagePreviewForm : Form
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool GetWindowRect(IntPtr window, out NativeRect rect);
+
+    private sealed class PixelAccuratePictureBox : PictureBox
+    {
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            e.Graphics.Clear(BackColor);
+            if (Image is null) return;
+
+            if (ClientSize.Width == Image.Width && ClientSize.Height == Image.Height)
+            {
+                e.Graphics.DrawImageUnscaled(Image, Point.Empty);
+                return;
+            }
+
+            e.Graphics.CompositingMode = CompositingMode.SourceCopy;
+            e.Graphics.CompositingQuality = CompositingQuality.HighQuality;
+            e.Graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            e.Graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+            e.Graphics.DrawImage(Image, ClientRectangle);
+        }
+    }
 }
