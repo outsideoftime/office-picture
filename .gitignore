@@ -2,6 +2,7 @@
 .vs/
 **/bin/
 **/obj/
+publish/
 *.user
 *.suo
 

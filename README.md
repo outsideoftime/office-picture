@@ -43,6 +43,18 @@ OfficePicture 是一个面向 Word、PowerPoint 和 Excel 桌面版的原生 VST
 
 如果构建提示 ClickOnce manifest 未签名，请打开对应 Add-in 项目的“属性 > 签名”，勾选“为 ClickOnce 清单签名”，创建本机测试证书。三个 Add-in 项目需分别配置一次。测试证书 `*.pfx` 已被 Git 忽略，不应提交。
 
+## 发布
+
+在 PowerShell 中运行：
+
+```powershell
+.\build\Publish.ps1 -Version 1.0.0.0
+```
+
+脚本会读取 Word 项目的本机签名证书，并为 Word、PowerPoint、Excel 生成统一签名的离线 ClickOnce 安装包，输出到 `publish`。`publish` 和私钥证书均不会提交到 Git。
+
+Visual Studio 自动创建的测试证书仅适合本机或内部测试。向其他用户正式分发前，应换用受信任的代码签名证书。
+
 ## Git
 
 仓库已经初始化，`.gitignore` 已忽略 Visual Studio、VSTO 构建产物、用户配置和测试证书。
