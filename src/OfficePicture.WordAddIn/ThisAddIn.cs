@@ -1,6 +1,7 @@
 using OfficePicture.Core;
 using Office = Microsoft.Office.Core;
 using Word = Microsoft.Office.Interop.Word;
+using System.Runtime.InteropServices;
 
 namespace OfficePicture.WordAddIn;
 
@@ -29,13 +30,11 @@ public partial class ThisAddIn
 
         try
         {
-            if (!IsPicture(selection)) return;
-
-            cancel = true;
             _previewOpen = true;
             try
             {
-                if (!TryGetOriginalImage(selection, out var image) || image is null) return;
+                if (!TryGetImageUnderMouse(out var image) || image is null) return;
+                cancel = true;
                 using (image)
                     ImagePreviewForm.ShowPreview(image, "Word", new NativeWindowOwner(new System.IntPtr(Application.ActiveWindow.Hwnd)));
             }
@@ -48,61 +47,56 @@ public partial class ThisAddIn
         catch { /* Office selection can be transient during a double-click. */ }
     }
 
-    private static bool TryGetOriginalImage(Word.Selection selection, out System.Drawing.Image? image)
+    private bool TryGetImageUnderMouse(out System.Drawing.Image? image)
     {
         image = null;
-        if (selection.InlineShapes.Count > 0)
-        {
-            var selectedShape = selection.InlineShapes[1];
-            var ordinal = GetInlineShapeOrdinal(selection.Document, selectedShape);
-            if (ordinal < 1) return false;
+        if (!GetCursorPos(out var cursor)) return false;
 
+        object hitObject = Application.ActiveWindow.RangeFromPoint(cursor.X, cursor.Y);
+        if (hitObject is not Word.Shape hitShape || !IsPicture(hitShape.Type)) return false;
+
+        var document = Application.ActiveDocument;
+        var inlineOrdinal = GetInlineShapeOrdinal(document, hitShape.Anchor);
+        if (inlineOrdinal > 0)
             return OpenXmlImageExtractor.TryExtractWordImageByOrdinal(
-                selection.Document.WordOpenXML,
-                ordinal,
+                document.WordOpenXML,
+                inlineOrdinal,
                 out image);
-        }
-
-        if (selection.ShapeRange.Count == 0) return false;
-        var shape = selection.ShapeRange[1];
 
         return OpenXmlImageExtractor.TryExtractWordImage(
-            selection.Document.WordOpenXML,
-            shape.ID,
-            shape.Name,
+            document.WordOpenXML,
+            hitShape.ID,
+            hitShape.Name,
             out image);
     }
 
-    private static int GetInlineShapeOrdinal(Word.Document document, Word.InlineShape selectedShape)
+    private static int GetInlineShapeOrdinal(Word.Document document, Word.Range hitAnchor)
     {
-        var selectedRange = selectedShape.Range;
         for (var index = 1; index <= document.InlineShapes.Count; index++)
         {
             var candidateRange = document.InlineShapes[index].Range;
-            if (candidateRange.Start == selectedRange.Start &&
-                candidateRange.StoryType == selectedRange.StoryType)
+            if (candidateRange.Start == hitAnchor.Start &&
+                candidateRange.StoryType == hitAnchor.StoryType)
                 return index;
         }
 
         return -1;
     }
 
-    private static bool IsPicture(Word.Selection selection)
+    private static bool IsPicture(Office.MsoShapeType type)
     {
-        if (selection.InlineShapes.Count > 0)
-        {
-            var type = selection.InlineShapes[1].Type;
-            return type == Word.WdInlineShapeType.wdInlineShapePicture ||
-                   type == Word.WdInlineShapeType.wdInlineShapeLinkedPicture;
-        }
-
-        try
-        {
-            if (selection.ShapeRange.Count == 0) return false;
-            var type = selection.ShapeRange[1].Type;
-            var value = (int)type;
-            return value == 13 || value == 11 || value == 28 || value == 29;
-        }
-        catch { return false; }
+        var value = (int)type;
+        return value == 13 || value == 11 || value == 28 || value == 29;
     }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CursorPoint
+    {
+        public int X;
+        public int Y;
+    }
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetCursorPos(out CursorPoint point);
 }
