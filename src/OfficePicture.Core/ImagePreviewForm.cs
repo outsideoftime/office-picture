@@ -71,8 +71,7 @@ public sealed class ImagePreviewForm : Form
         {
             Dock = DockStyle.Fill,
             AutoScroll = true,
-            BackColor = Color.FromArgb(28, 28, 30),
-            Padding = new Padding(20)
+            BackColor = Color.FromArgb(28, 28, 30)
         };
         _pictureBox = new PixelAccuratePictureBox
         {
@@ -87,7 +86,11 @@ public sealed class ImagePreviewForm : Form
         toolStrip.Dock = DockStyle.Top;
 
         Shown += (_, _) => FitImage();
-        Resize += (_, _) => { if (_fitToWindow) FitImage(); };
+        Resize += (_, _) =>
+        {
+            if (_fitToWindow) FitImage();
+            else ApplyZoom(_zoom, GetViewportCenter());
+        };
         MouseWheel += OnPreviewMouseWheel;
         _viewport.MouseWheel += OnPreviewMouseWheel;
         _pictureBox.MouseWheel += OnPreviewMouseWheel;
@@ -151,10 +154,15 @@ public sealed class ImagePreviewForm : Form
             Math.Min(Height, area.Height));
     }
 
-    private void OnPreviewMouseWheel(object? sender, MouseEventArgs e) =>
-        ChangeZoom(e.Delta > 0 ? 1.15F : 1F / 1.15F);
+    private void OnPreviewMouseWheel(object? sender, MouseEventArgs e)
+    {
+        if (e is HandledMouseEventArgs handled) handled.Handled = true;
+        var focus = _viewport.PointToClient(Cursor.Position);
+        ChangeZoom(e.Delta > 0 ? 1.15F : 1F / 1.15F, focus);
+    }
 
-    private void ChangeZoom(float factor) => SetZoom(_zoom * factor);
+    private void ChangeZoom(float factor, Point? focus = null) =>
+        SetZoom(_zoom * factor, focus);
 
     private void FitImage()
     {
@@ -162,27 +170,62 @@ public sealed class ImagePreviewForm : Form
         var widthRatio = (_viewport.ClientSize.Width - 40F) / _image.Width;
         var heightRatio = (_viewport.ClientSize.Height - 40F) / _image.Height;
         _fitToWindow = true;
-        ApplyZoom(Math.Min(widthRatio, heightRatio));
+        ApplyZoom(Math.Min(widthRatio, heightRatio), resetScroll: true);
     }
 
-    private void SetZoom(float zoom)
+    private void SetZoom(float zoom, Point? focus = null)
     {
         _fitToWindow = false;
-        ApplyZoom(zoom);
+        ApplyZoom(zoom, focus ?? GetViewportCenter());
     }
 
-    private void ApplyZoom(float zoom)
+    private void ApplyZoom(float zoom, Point? focus = null, bool resetScroll = false)
     {
+        var focalPoint = focus ?? GetViewportCenter();
+        var imageFocusX = _pictureBox.Width > 0
+            ? Math.Max(0F, Math.Min(1F, (focalPoint.X - _pictureBox.Left) / (float)_pictureBox.Width))
+            : 0.5F;
+        var imageFocusY = _pictureBox.Height > 0
+            ? Math.Max(0F, Math.Min(1F, (focalPoint.Y - _pictureBox.Top) / (float)_pictureBox.Height))
+            : 0.5F;
+
         _zoom = Math.Max(MinZoom, Math.Min(MaxZoom, zoom));
-        _pictureBox.Size = new Size(
+        var scaledSize = new Size(
             Math.Max(1, (int)Math.Round(_image.Width * _zoom)),
             Math.Max(1, (int)Math.Round(_image.Height * _zoom)));
-        _pictureBox.Location = new Point(
-            Math.Max(20, (_viewport.ClientSize.Width - _pictureBox.Width) / 2),
-            Math.Max(20, (_viewport.ClientSize.Height - _pictureBox.Height) / 2));
+
+        _viewport.SuspendLayout();
+        _viewport.AutoScrollPosition = Point.Empty;
+        _pictureBox.Size = scaledSize;
+        _pictureBox.Location = GetPictureLocation(scaledSize);
+
+        // Right/Bottom include the current negative scroll offset. Computing the
+        // virtual canvas from them makes the far edge unreachable after zooming
+        // while already scrolled. The image dimensions are stable virtual values.
+        var virtualSize = new Size(scaledSize.Width + 40, scaledSize.Height + 40);
+        _viewport.AutoScrollMinSize = virtualSize;
+
+        if (!resetScroll)
+        {
+            var targetX = _pictureBox.Left + (int)Math.Round(imageFocusX * scaledSize.Width) - focalPoint.X;
+            var targetY = _pictureBox.Top + (int)Math.Round(imageFocusY * scaledSize.Height) - focalPoint.Y;
+            var maxX = Math.Max(0, virtualSize.Width - _viewport.ClientSize.Width);
+            var maxY = Math.Max(0, virtualSize.Height - _viewport.ClientSize.Height);
+            _viewport.AutoScrollPosition = new Point(
+                Math.Max(0, Math.Min(maxX, targetX)),
+                Math.Max(0, Math.Min(maxY, targetY)));
+        }
+
         _zoomLabel.Text = $"{_zoom:P0}";
-        _viewport.AutoScrollMinSize = new Size(_pictureBox.Right + 20, _pictureBox.Bottom + 20);
+        _viewport.ResumeLayout();
     }
+
+    private Point GetViewportCenter() =>
+        new(_viewport.ClientSize.Width / 2, _viewport.ClientSize.Height / 2);
+
+    private Point GetPictureLocation(Size imageSize) => new(
+        Math.Max(20, (_viewport.ClientSize.Width - imageSize.Width) / 2),
+        Math.Max(20, (_viewport.ClientSize.Height - imageSize.Height) / 2));
 
     [StructLayout(LayoutKind.Sequential)]
     private struct NativeRect
