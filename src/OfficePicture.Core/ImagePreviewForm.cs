@@ -217,7 +217,9 @@ public sealed class ImagePreviewForm : Form
         }
 
         _zoomLabel.Text = $"{_zoom:P0}";
-        _viewport.ResumeLayout();
+        _viewport.ResumeLayout(true);
+        _viewport.Invalidate(true);
+        _viewport.Update();
     }
 
     private Point GetViewportCenter() =>
