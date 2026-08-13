@@ -53,20 +53,38 @@ public partial class ThisAddIn
         image = null;
         if (selection.InlineShapes.Count > 0)
         {
-            var xml = selection.InlineShapes[1].Range.WordOpenXML;
-            return OpenXmlImageExtractor.TryExtractWordImage(xml, null, null, out image);
+            var selectedShape = selection.InlineShapes[1];
+            var ordinal = GetInlineShapeOrdinal(selection.Document, selectedShape);
+            if (ordinal < 1) return false;
+
+            return OpenXmlImageExtractor.TryExtractWordImageByOrdinal(
+                selection.Document.WordOpenXML,
+                ordinal,
+                out image);
         }
 
         if (selection.ShapeRange.Count == 0) return false;
         var shape = selection.ShapeRange[1];
 
-        if (OpenXmlImageExtractor.TryExtractWordImage(
-                selection.Range.WordOpenXML, shape.ID, shape.Name, out image))
-            return true;
-
-        var anchorParagraph = shape.Anchor.Paragraphs[1].Range;
         return OpenXmlImageExtractor.TryExtractWordImage(
-            anchorParagraph.WordOpenXML, shape.ID, shape.Name, out image);
+            selection.Document.WordOpenXML,
+            shape.ID,
+            shape.Name,
+            out image);
+    }
+
+    private static int GetInlineShapeOrdinal(Word.Document document, Word.InlineShape selectedShape)
+    {
+        var selectedRange = selectedShape.Range;
+        for (var index = 1; index <= document.InlineShapes.Count; index++)
+        {
+            var candidateRange = document.InlineShapes[index].Range;
+            if (candidateRange.Start == selectedRange.Start &&
+                candidateRange.StoryType == selectedRange.StoryType)
+                return index;
+        }
+
+        return -1;
     }
 
     private static bool IsPicture(Word.Selection selection)

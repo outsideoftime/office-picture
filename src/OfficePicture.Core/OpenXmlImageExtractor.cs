@@ -19,21 +19,36 @@ public static class OpenXmlImageExtractor
         string flatOpenXml,
         int? shapeId,
         string? shapeName,
+        out Image? image) =>
+        TryExtractWordImage(flatOpenXml, shapeId, shapeName, null, out image);
+
+    public static bool TryExtractWordImageByOrdinal(
+        string flatOpenXml,
+        int pictureOrdinal,
+        out Image? image) =>
+        TryExtractWordImage(flatOpenXml, null, null, pictureOrdinal, out image);
+
+    private static bool TryExtractWordImage(
+        string flatOpenXml,
+        int? shapeId,
+        string? shapeName,
+        int? pictureOrdinal,
         out Image? image)
     {
         image = null;
         if (string.IsNullOrWhiteSpace(flatOpenXml)) return false;
+        if (pictureOrdinal.HasValue && pictureOrdinal.Value < 1) return false;
 
         try
         {
             var package = XDocument.Parse(flatOpenXml, LoadOptions.PreserveWhitespace);
             var parts = GetFlatPackageParts(package);
-            var candidatePartNames = GetWordImagePartNames(parts, shapeId, shapeName);
+            var candidatePartNames = GetWordImagePartNames(parts, shapeId, shapeName, pictureOrdinal);
 
             // InlineShape has no stable Office shape ID. Resolve the blip present in the
             // selected range XML instead of falling back to the first package media part.
             if (candidatePartNames.Count == 0 && (shapeId.HasValue || !string.IsNullOrEmpty(shapeName)))
-                candidatePartNames = GetWordImagePartNames(parts, null, null);
+                candidatePartNames = GetWordImagePartNames(parts, null, null, null);
 
             var candidates = candidatePartNames
                 .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -181,7 +196,8 @@ public static class OpenXmlImageExtractor
     private static List<string> GetWordImagePartNames(
         IReadOnlyDictionary<string, FlatPackagePart> parts,
         int? shapeId,
-        string? shapeName)
+        string? shapeName,
+        int? pictureOrdinal)
     {
         var result = new List<string>();
         var hasShapeIdentity = shapeId.HasValue || !string.IsNullOrEmpty(shapeName);
@@ -189,7 +205,17 @@ public static class OpenXmlImageExtractor
         foreach (var part in parts.Values.Where(item => item.Xml is not null))
         {
             IEnumerable<XElement> containers;
-            if (hasShapeIdentity)
+            if (pictureOrdinal.HasValue)
+            {
+                if (!string.Equals(part.Name, "/word/document.xml", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                containers = part.Xml!.DescendantsAndSelf()
+                    .Where(element => element.Name.LocalName == "inline" || element.Name.LocalName == "anchor")
+                    .Skip(pictureOrdinal.Value - 1)
+                    .Take(1);
+            }
+            else if (hasShapeIdentity)
             {
                 containers = part.Xml!.DescendantsAndSelf()
                     .Where(element => IsShapePropertiesMatch(element, shapeId, shapeName))
