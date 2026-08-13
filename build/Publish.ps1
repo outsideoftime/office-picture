@@ -32,6 +32,7 @@ if ([string]::IsNullOrWhiteSpace($visualStudioPath)) {
 
 $msbuild = Join-Path $visualStudioPath 'MSBuild\Current\Bin\MSBuild.exe'
 $publishRoot = Join-Path $repositoryRoot 'publish'
+$publisherName = [string][char]0x738B + [char]0x56FD + [char]0x6881
 $projects = @(
     @{ Host = 'Word'; Project = 'src\OfficePicture.WordAddIn\OfficePicture.WordAddIn.csproj'; Product = 'OfficePicture Word' },
     @{ Host = 'PowerPoint'; Project = 'src\OfficePicture.PowerPointAddIn\OfficePicture.PowerPointAddIn.csproj'; Product = 'OfficePicture PowerPoint' },
@@ -53,7 +54,7 @@ foreach ($item in $projects) {
         "/p:PublishUrl=$publishDirectory",
         "/p:ApplicationVersion=$Version",
         "/p:ProductName=$($item.Product)",
-        '/p:PublisherName=王国梁',
+        "/p:PublisherName=$publisherName",
         '/p:IsWebBootstrapper=false',
         '/p:BootstrapperEnabled=true',
         '/p:BootstrapperComponentsLocation=HomeSite',
