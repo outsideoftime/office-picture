@@ -170,7 +170,7 @@ public sealed class ImagePreviewForm : Form
         var widthRatio = (_viewport.ClientSize.Width - 40F) / _image.Width;
         var heightRatio = (_viewport.ClientSize.Height - 40F) / _image.Height;
         _fitToWindow = true;
-        ApplyZoom(Math.Min(widthRatio, heightRatio), resetScroll: true);
+        ApplyZoom(Math.Min(1F, Math.Min(widthRatio, heightRatio)), resetScroll: true);
     }
 
     private void SetZoom(float zoom, Point? focus = null)
