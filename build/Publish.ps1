@@ -53,7 +53,7 @@ foreach ($item in $projects) {
         "/p:PublishUrl=$publishDirectory",
         "/p:ApplicationVersion=$Version",
         "/p:ProductName=$($item.Product)",
-        '/p:PublisherName=OfficePicture',
+        '/p:PublisherName=王国梁',
         '/p:IsWebBootstrapper=false',
         '/p:BootstrapperEnabled=true',
         '/p:BootstrapperComponentsLocation=HomeSite',
