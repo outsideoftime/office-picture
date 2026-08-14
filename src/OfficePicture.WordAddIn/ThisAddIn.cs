@@ -2,6 +2,7 @@ using OfficePicture.Core;
 using Office = Microsoft.Office.Core;
 using Word = Microsoft.Office.Interop.Word;
 using System.Runtime.InteropServices;
+using System.IO;
 
 namespace OfficePicture.WordAddIn;
 
@@ -58,10 +59,19 @@ public partial class ThisAddIn
         var document = Application.ActiveDocument;
         var inlineOrdinal = GetInlineShapeOrdinal(document, hitShape.Anchor);
         if (inlineOrdinal > 0)
+        {
+            if (TryGetSavedPackagePath(document, out var packagePath) &&
+                OpenXmlImageExtractor.TryExtractWordImageByOrdinalFromPackage(
+                    packagePath,
+                    inlineOrdinal,
+                    out image))
+                return true;
+
             return OpenXmlImageExtractor.TryExtractWordImageByOrdinal(
                 document.WordOpenXML,
                 inlineOrdinal,
                 out image);
+        }
 
         return OpenXmlImageExtractor.TryExtractWordImage(
             document.WordOpenXML,
@@ -70,17 +80,40 @@ public partial class ThisAddIn
             out image);
     }
 
+    private static bool TryGetSavedPackagePath(Word.Document document, out string packagePath)
+    {
+        packagePath = string.Empty;
+        try
+        {
+            if (!document.Saved || !File.Exists(document.FullName)) return false;
+            packagePath = document.FullName;
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     private static int GetInlineShapeOrdinal(Word.Document document, Word.Range hitAnchor)
     {
-        for (var index = 1; index <= document.InlineShapes.Count; index++)
-        {
-            var candidateRange = document.InlineShapes[index].Range;
-            if (candidateRange.Start == hitAnchor.Start &&
-                candidateRange.StoryType == hitAnchor.StoryType)
-                return index;
-        }
+        if (hitAnchor.StoryType != Word.WdStoryType.wdMainTextStory) return -1;
 
-        return -1;
+        Word.Range? prefixRange = null;
+        try
+        {
+            prefixRange = document.Range(0, hitAnchor.End);
+            return prefixRange.InlineShapes.Count;
+        }
+        catch
+        {
+            return -1;
+        }
+        finally
+        {
+            if (prefixRange is not null)
+                Marshal.FinalReleaseComObject(prefixRange);
+        }
     }
 
     private static bool IsPicture(Office.MsoShapeType type)

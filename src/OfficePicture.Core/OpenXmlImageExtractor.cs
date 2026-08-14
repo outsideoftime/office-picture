@@ -28,6 +28,47 @@ public static class OpenXmlImageExtractor
         out Image? image) =>
         TryExtractWordImage(flatOpenXml, null, null, pictureOrdinal, out image);
 
+    public static bool TryExtractWordImageByOrdinalFromPackage(
+        string packagePath,
+        int pictureOrdinal,
+        out Image? image)
+    {
+        image = null;
+        if (pictureOrdinal < 1) return false;
+
+        try
+        {
+            using var package = OpenPackage(packagePath);
+            const string documentPart = "word/document.xml";
+            var document = LoadXml(package, documentPart);
+            if (document is null) return false;
+
+            var picture = document.Descendants()
+                .Where(element => element.Name.LocalName == "inline")
+                .Skip(pictureOrdinal - 1)
+                .FirstOrDefault();
+            if (picture is null) return false;
+
+            var imageParts = GetEmbeddedRelationshipIds(picture)
+                .Select(id => ResolveRelationship(package, documentPart, id))
+                .Where(path => path is not null)
+                .Cast<string>();
+
+            return TryChooseLargestImage(
+                imageParts.Select(path => ReadEntryBytes(package, path)).Where(bytes => bytes is not null).Cast<byte[]>(),
+                out image);
+        }
+        catch (Exception exception) when (
+            exception is IOException ||
+            exception is InvalidDataException ||
+            exception is UnauthorizedAccessException ||
+            exception is ArgumentException ||
+            exception is XmlException)
+        {
+            return false;
+        }
+    }
+
     private static bool TryExtractWordImage(
         string flatOpenXml,
         int? shapeId,
@@ -211,7 +252,7 @@ public static class OpenXmlImageExtractor
                     continue;
 
                 containers = part.Xml!.DescendantsAndSelf()
-                    .Where(element => element.Name.LocalName == "inline" || element.Name.LocalName == "anchor")
+                    .Where(element => element.Name.LocalName == "inline")
                     .Skip(pictureOrdinal.Value - 1)
                     .Take(1);
             }
