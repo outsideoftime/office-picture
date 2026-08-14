@@ -41,7 +41,7 @@ public sealed class ImagePreviewForm : Form
             ForeColor = Color.White,
             Padding = new Padding(12, 6, 12, 6),
             Height = 44,
-            Renderer = new ToolStripSystemRenderer()
+            Renderer = new BorderlessToolStripRenderer()
         };
         toolStrip.Items.Add(new ToolStripLabel($"图片预览 · {host}")
         {
@@ -260,6 +260,15 @@ public sealed class ImagePreviewForm : Form
             e.Graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
             e.Graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
             e.Graphics.DrawImage(Image, ClientRectangle);
+        }
+    }
+
+    private sealed class BorderlessToolStripRenderer : ToolStripSystemRenderer
+    {
+        protected override void OnRenderToolStripBorder(ToolStripRenderEventArgs e)
+        {
+            // Keep the system-rendered controls and separators, but omit the
+            // bright outer border drawn below the preview toolbar.
         }
     }
 }
