@@ -32,9 +32,37 @@ public static class OpenXmlImageExtractor
         string packagePath,
         int pictureOrdinal,
         out Image? image)
+        => TryExtractWordImageFromPackage(
+            packagePath,
+            pictureOrdinal,
+            null,
+            null,
+            out image);
+
+    public static bool TryExtractWordImageByIdentityFromPackage(
+        string packagePath,
+        string? anchorId,
+        string? editId,
+        out Image? image)
+        => TryExtractWordImageFromPackage(
+            packagePath,
+            null,
+            anchorId,
+            editId,
+            out image);
+
+    private static bool TryExtractWordImageFromPackage(
+        string packagePath,
+        int? pictureOrdinal,
+        string? anchorId,
+        string? editId,
+        out Image? image)
     {
         image = null;
-        if (pictureOrdinal < 1) return false;
+        if ((!pictureOrdinal.HasValue || pictureOrdinal.Value < 1) &&
+            string.IsNullOrWhiteSpace(anchorId) &&
+            string.IsNullOrWhiteSpace(editId))
+            return false;
 
         try
         {
@@ -43,10 +71,11 @@ public static class OpenXmlImageExtractor
             var document = LoadXml(package, documentPart);
             if (document is null) return false;
 
-            var picture = document.Descendants()
-                .Where(element => element.Name.LocalName == "inline")
-                .Skip(pictureOrdinal - 1)
-                .FirstOrDefault();
+            var pictures = document.Descendants()
+                .Where(element => element.Name.LocalName == "inline");
+            var picture = !string.IsNullOrWhiteSpace(anchorId) || !string.IsNullOrWhiteSpace(editId)
+                ? pictures.FirstOrDefault(element => DrawingIdentityMatches(element, anchorId, editId))
+                : pictures.Skip(pictureOrdinal!.Value - 1).FirstOrDefault();
             if (picture is null) return false;
 
             var imageParts = GetEmbeddedRelationshipIds(picture)
@@ -67,6 +96,31 @@ public static class OpenXmlImageExtractor
         {
             return false;
         }
+    }
+
+    private static bool DrawingIdentityMatches(XElement element, string? anchorId, string? editId)
+    {
+        var elementAnchorId = element.Attributes()
+            .FirstOrDefault(attribute => attribute.Name.LocalName == "anchorId")?.Value;
+        var elementEditId = element.Attributes()
+            .FirstOrDefault(attribute => attribute.Name.LocalName == "editId")?.Value;
+        var compared = false;
+
+        if (!string.IsNullOrWhiteSpace(anchorId) && !string.IsNullOrWhiteSpace(elementAnchorId))
+        {
+            compared = true;
+            if (!string.Equals(elementAnchorId, anchorId, StringComparison.OrdinalIgnoreCase))
+                return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(editId) && !string.IsNullOrWhiteSpace(elementEditId))
+        {
+            compared = true;
+            if (!string.Equals(elementEditId, editId, StringComparison.OrdinalIgnoreCase))
+                return false;
+        }
+
+        return compared;
     }
 
     private static bool TryExtractWordImage(

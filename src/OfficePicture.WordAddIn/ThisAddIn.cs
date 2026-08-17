@@ -60,12 +60,25 @@ public partial class ThisAddIn
         var inlineOrdinal = GetInlineShapeOrdinal(document, hitShape.Anchor);
         if (inlineOrdinal > 0)
         {
-            if (TryGetSavedPackagePath(document, out var packagePath) &&
-                OpenXmlImageExtractor.TryExtractWordImageByOrdinalFromPackage(
-                    packagePath,
-                    inlineOrdinal,
-                    out image))
-                return true;
+            if (TryGetPackagePath(document, out var packagePath))
+            {
+                if (TryGetInlineShapeIdentity(document, inlineOrdinal, out var anchorId, out var editId) &&
+                    OpenXmlImageExtractor.TryExtractWordImageByIdentityFromPackage(
+                        packagePath,
+                        anchorId,
+                        editId,
+                        out image))
+                    return true;
+
+                // Ordinals are only safe when the package and the in-memory document
+                // are in sync. Unsaved insertions/deletions can shift every later image.
+                if (document.Saved &&
+                    OpenXmlImageExtractor.TryExtractWordImageByOrdinalFromPackage(
+                        packagePath,
+                        inlineOrdinal,
+                        out image))
+                    return true;
+            }
 
             return OpenXmlImageExtractor.TryExtractWordImageByOrdinal(
                 document.WordOpenXML,
@@ -80,18 +93,47 @@ public partial class ThisAddIn
             out image);
     }
 
-    private static bool TryGetSavedPackagePath(Word.Document document, out string packagePath)
+    private static bool TryGetPackagePath(Word.Document document, out string packagePath)
     {
         packagePath = string.Empty;
         try
         {
-            if (!document.Saved || !File.Exists(document.FullName)) return false;
+            if (!File.Exists(document.FullName)) return false;
             packagePath = document.FullName;
             return true;
         }
         catch
         {
             return false;
+        }
+    }
+
+    private static bool TryGetInlineShapeIdentity(
+        Word.Document document,
+        int inlineOrdinal,
+        out string anchorId,
+        out string editId)
+    {
+        anchorId = string.Empty;
+        editId = string.Empty;
+        Word.InlineShape? inlineShape = null;
+        try
+        {
+            inlineShape = document.InlineShapes[inlineOrdinal];
+            var anchorValue = unchecked((uint)inlineShape.AnchorID);
+            var editValue = unchecked((uint)inlineShape.EditID);
+            if (anchorValue != 0) anchorId = anchorValue.ToString("X8");
+            if (editValue != 0) editId = editValue.ToString("X8");
+            return anchorId.Length > 0 || editId.Length > 0;
+        }
+        catch
+        {
+            return false;
+        }
+        finally
+        {
+            if (inlineShape is not null)
+                Marshal.FinalReleaseComObject(inlineShape);
         }
     }
 
