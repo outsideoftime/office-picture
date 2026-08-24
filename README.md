@@ -55,6 +55,10 @@ OfficePicture 是一个面向 Word、PowerPoint 和 Excel 桌面版的原生 VST
 
 Visual Studio 自动创建的测试证书仅适合本机或内部测试。向其他用户正式分发前，应换用受信任的代码签名证书。
 
+## 许可证
+
+本项目采用 [PolyForm Noncommercial License 1.0.0](LICENSE) 开源，仅允许非商业用途。商业使用、商业分发或商业服务集成不在授权范围内；如需商业授权，请联系版权持有人。
+
 ## Git
 
 仓库已经初始化，`.gitignore` 已忽略 Visual Studio、VSTO 构建产物、用户配置和测试证书。
