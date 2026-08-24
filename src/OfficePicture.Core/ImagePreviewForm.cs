@@ -17,6 +17,9 @@ public sealed class ImagePreviewForm : Form
     private readonly Image _image;
     private float _zoom = 1F;
     private bool _fitToWindow = true;
+    private bool _isPanning;
+    private Point _panStartPoint;
+    private Point _panStartScrollPosition;
 
     public ImagePreviewForm(Image image, string host)
     {
@@ -94,6 +97,12 @@ public sealed class ImagePreviewForm : Form
         MouseWheel += OnPreviewMouseWheel;
         _viewport.MouseWheel += OnPreviewMouseWheel;
         _pictureBox.MouseWheel += OnPreviewMouseWheel;
+        _viewport.MouseDown += OnPanMouseDown;
+        _viewport.MouseMove += OnPanMouseMove;
+        _viewport.MouseUp += OnPanMouseUp;
+        _pictureBox.MouseDown += OnPanMouseDown;
+        _pictureBox.MouseMove += OnPanMouseMove;
+        _pictureBox.MouseUp += OnPanMouseUp;
         KeyDown += (_, e) =>
         {
             if (e.KeyCode == Keys.Escape) Close();
@@ -161,6 +170,37 @@ public sealed class ImagePreviewForm : Form
         ChangeZoom(e.Delta > 0 ? 1.15F : 1F / 1.15F, focus);
     }
 
+    private void OnPanMouseDown(object? sender, MouseEventArgs e)
+    {
+        if (e.Button != MouseButtons.Left || !CanPan()) return;
+
+        _isPanning = true;
+        _panStartPoint = _viewport.PointToClient(Cursor.Position);
+        _panStartScrollPosition = GetScrollPosition();
+        _viewport.Capture = true;
+        SetPanCursor(true);
+    }
+
+    private void OnPanMouseMove(object? sender, MouseEventArgs e)
+    {
+        if (!_isPanning) return;
+
+        var currentPoint = _viewport.PointToClient(Cursor.Position);
+        var delta = new Size(currentPoint.X - _panStartPoint.X, currentPoint.Y - _panStartPoint.Y);
+        SetScrollPosition(new Point(
+            _panStartScrollPosition.X - delta.Width,
+            _panStartScrollPosition.Y - delta.Height));
+    }
+
+    private void OnPanMouseUp(object? sender, MouseEventArgs e)
+    {
+        if (e.Button != MouseButtons.Left || !_isPanning) return;
+
+        _isPanning = false;
+        _viewport.Capture = false;
+        SetPanCursor(false);
+    }
+
     private void ChangeZoom(float factor, Point? focus = null) =>
         SetZoom(_zoom * factor, focus);
 
@@ -217,9 +257,34 @@ public sealed class ImagePreviewForm : Form
         }
 
         _zoomLabel.Text = $"{_zoom:P0}";
+        SetPanCursor(false);
         _viewport.ResumeLayout(true);
         _viewport.Invalidate(true);
         _viewport.Update();
+    }
+
+    private bool CanPan() =>
+        _viewport.AutoScrollMinSize.Width > _viewport.ClientSize.Width ||
+        _viewport.AutoScrollMinSize.Height > _viewport.ClientSize.Height;
+
+    private Point GetScrollPosition() => new(
+        Math.Max(0, -_viewport.AutoScrollPosition.X),
+        Math.Max(0, -_viewport.AutoScrollPosition.Y));
+
+    private void SetScrollPosition(Point position)
+    {
+        var maxX = Math.Max(0, _viewport.AutoScrollMinSize.Width - _viewport.ClientSize.Width);
+        var maxY = Math.Max(0, _viewport.AutoScrollMinSize.Height - _viewport.ClientSize.Height);
+        _viewport.AutoScrollPosition = new Point(
+            Math.Max(0, Math.Min(maxX, position.X)),
+            Math.Max(0, Math.Min(maxY, position.Y)));
+    }
+
+    private void SetPanCursor(bool isPanning)
+    {
+        var cursor = isPanning ? Cursors.SizeAll : CanPan() ? Cursors.Hand : Cursors.Default;
+        _viewport.Cursor = cursor;
+        _pictureBox.Cursor = cursor;
     }
 
     private Point GetViewportCenter() =>
