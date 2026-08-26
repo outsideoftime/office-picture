@@ -1,0 +1,12 @@
+OfficePicture 1.0.0.10 安装说明
+===============================
+
+1. 关闭 Word、PowerPoint 和 Excel。
+2. 安装 Word 插件：运行 Word\setup.exe。
+3. 安装 PowerPoint 插件：运行 PowerPoint\setup.exe。
+4. 安装 Excel 插件：运行 Excel\setup.exe。
+5. 重新打开 Office，直接双击文档中的图片即可预览。
+
+卸载：打开 Windows“设置 > 应用 > 已安装的应用”，分别卸载三个 OfficePicture 插件。
+
+注意：当前安装包使用 Visual Studio 自动生成的自签名测试证书，仅适合本机或内部测试。Windows 显示未知/不受信任发布者属于测试证书的预期行为。正式对外分发前必须换用受信任的代码签名证书。

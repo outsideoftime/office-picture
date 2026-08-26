@@ -7,22 +7,27 @@ OfficePicture 是一个面向 Word、PowerPoint 和 Excel 桌面版的原生 VST
 ## 当前功能
 
 - Word：支持嵌入式图片和浮动图片。
-- PowerPoint：支持普通图片和链接图片。
-- Excel：支持工作表中的图片 Shape；通过 Excel 窗口双击消息触发。
-- 预览窗口：适应窗口、100%、放大、缩小、鼠标滚轮缩放，按 `Esc` 关闭。
+- PowerPoint：支持幻灯片中的嵌入图片。
+- Excel：支持 Open XML 工作簿中的嵌入图片 Shape；通过 Excel 窗口双击消息触发。
+- 预览窗口：适应窗口、100%、放大、缩小、鼠标滚轮缩放；缩放后可按住鼠标左键拖动查看，按 `Esc` 关闭。
 - 缩放范围：10%～800%；较小图片在“适应窗口”模式下也会自动放大。
 - 预览以当前 Office 窗口为父窗口，采用无标题栏的沉浸式预览层，不显示独立任务栏图标。
 - 双击触发带有重入保护和关闭后的短暂去重，不会在关闭后再次弹出同一次预览。
-- 读取图片时会尽量保存并恢复用户原有的剪贴板内容。
+- 直接读取 Office 文档内部的原始媒体，不调用复制命令、不访问系统剪贴板。
+- “100%”使用原始媒体像素 1:1 绘制，不经过缩放插值。
 
 图表、OLE 对象、组合对象和非图片 Shape 不会触发预览。
 
 ## 项目结构
 
-- `OfficePicture.Core`：WinForms 预览弹窗、剪贴板图片捕获、Office 窗口适配和 Excel 双击钩子。
+- `OfficePicture.Core`：WinForms 预览弹窗、Open XML 原始媒体提取、Office 窗口适配和 Excel 双击钩子。
 - `OfficePicture.WordAddIn`：Word VSTO Add-in。
 - `OfficePicture.PowerPointAddIn`：PowerPoint VSTO Add-in。
 - `OfficePicture.ExcelAddIn`：Excel VSTO Add-in。
+
+## 产品与设计文档
+
+完整的产品倒推资料位于 [`docs`](docs/README.md)，包括产品需求文档（PRD）、交互与视觉规范、可点击原型、技术设计、测试/发布/运维方案和需求追踪矩阵。文档明确区分当前 1.0 已实现能力与后续规划，可作为类似 Office 插件或单任务桌面工具的项目参考。
 
 ## 环境
 

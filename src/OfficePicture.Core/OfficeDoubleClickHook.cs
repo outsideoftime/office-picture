@@ -8,6 +8,8 @@ namespace OfficePicture.Core;
 public sealed class OfficeDoubleClickHook : IDisposable
 {
     private const int WhGetMessage = 3;
+    private const uint WmNull = 0x0000;
+    private const int PmRemove = 0x0001;
     private const uint WmLButtonDblClk = 0x0203;
 
     private readonly Action _onDoubleClick;
@@ -16,11 +18,13 @@ public sealed class OfficeDoubleClickHook : IDisposable
     private readonly Control _dispatcher;
     private IntPtr _hook;
     private bool _callbackPending;
+    private readonly Func<bool>? _shouldHandleDoubleClick;
 
-    public OfficeDoubleClickHook(string requiredWindowClass, Action onDoubleClick)
+    public OfficeDoubleClickHook(string requiredWindowClass, Action onDoubleClick, Func<bool>? shouldHandleDoubleClick = null)
     {
         _requiredWindowClass = requiredWindowClass;
         _onDoubleClick = onDoubleClick;
+        _shouldHandleDoubleClick = shouldHandleDoubleClick;
         _hookProc = HookCallback;
         _dispatcher = new Control();
         _ = _dispatcher.Handle;
@@ -44,11 +48,20 @@ public sealed class OfficeDoubleClickHook : IDisposable
 
     private IntPtr HookCallback(int code, IntPtr wParam, IntPtr lParam)
     {
-        if (code >= 0 && !_callbackPending)
+        // WH_GETMESSAGE also runs for PeekMessage(PM_NOREMOVE). Those calls
+        // can observe the same mouse message repeatedly while Office is
+        // inspecting its queue. Only dispatch after the message has actually
+        // been removed, otherwise one double-click can flood BeginInvoke and
+        // starve Excel's UI queue.
+        if (code >= 0 && wParam == (IntPtr)PmRemove && !_callbackPending)
         {
             var message = Marshal.PtrToStructure<NativeMessage>(lParam);
-            if (message.Message == WmLButtonDblClk && IsInsideRequiredWindow(message.HWnd))
+            if (message.Message == WmLButtonDblClk &&
+                IsInsideRequiredWindow(message.HWnd) &&
+                ShouldHandleDoubleClick())
             {
+                message.Message = WmNull;
+                Marshal.StructureToPtr(message, lParam, false);
                 _callbackPending = true;
                 _dispatcher.BeginInvoke((Action)(() =>
                 {
@@ -58,6 +71,20 @@ public sealed class OfficeDoubleClickHook : IDisposable
             }
         }
         return CallNextHookEx(_hook, code, wParam, lParam);
+    }
+
+    private bool ShouldHandleDoubleClick()
+    {
+        if (_shouldHandleDoubleClick is null) return true;
+
+        try
+        {
+            return _shouldHandleDoubleClick();
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private bool IsInsideRequiredWindow(IntPtr window)

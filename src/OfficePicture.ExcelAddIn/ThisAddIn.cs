@@ -4,6 +4,7 @@ using Office = Microsoft.Office.Core;
 using System;
 using System.IO;
 using System.Reflection;
+using System.Runtime.InteropServices;
 
 namespace OfficePicture.ExcelAddIn;
 
@@ -15,7 +16,7 @@ public partial class ThisAddIn
 
     private void ThisAddIn_Startup(object sender, System.EventArgs e)
     {
-        _doubleClickHook = new OfficeDoubleClickHook("EXCEL7", PreviewSelectedPicture);
+        _doubleClickHook = new OfficeDoubleClickHook("EXCEL7", PreviewSelectedPicture, IsPictureSelectedForDoubleClick);
     }
 
     private void ThisAddIn_Shutdown(object sender, System.EventArgs e)
@@ -41,11 +42,27 @@ public partial class ThisAddIn
             }
             finally
             {
+                ReleaseCapture();
                 _previewOpen = false;
                 _suppressPreviewUntilUtc = System.DateTime.UtcNow.AddMilliseconds(400);
             }
         }
         catch { /* Excel can return a transient selection during a double-click. */ }
+    }
+
+    private bool IsPictureSelectedForDoubleClick()
+    {
+        try
+        {
+            object selection = Application.Selection;
+            return selection is not null &&
+                   selection is not Excel.Range &&
+                   TryGetPictureSelection(selection, out _, out _);
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private bool TryGetPictureSelection(
@@ -132,4 +149,7 @@ public partial class ThisAddIn
                extension.Equals(".xltm", StringComparison.OrdinalIgnoreCase);
     }
 
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool ReleaseCapture();
 }
