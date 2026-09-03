@@ -43,6 +43,7 @@
     </Compile>
     <Compile Include="NativeWindowOwner.cs" />
     <Compile Include="OfficeDoubleClickHook.cs" />
+    <Compile Include="ClipboardImageCapture.cs" />
     <Compile Include="OpenXmlImageExtractor.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
